@@ -3,6 +3,7 @@ package app;
 import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,7 +11,7 @@ import android.widget.TextView;
 
 import viewstack.ViewComponent;
 import viewstack.ViewStack;
-import com.viewstack.R;
+import viewstack.sample.R;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -86,7 +87,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         private void log(String method) {
-            Logger.log(method + " " + this);
+            Log.d(method, this.toString());
         }
 
         @Override

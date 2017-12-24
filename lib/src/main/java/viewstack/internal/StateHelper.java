@@ -7,11 +7,11 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.SparseArray;
 
-import viewstack.ViewComponent;
-import viewstack.ViewStack;
-
 import java.lang.reflect.Constructor;
 import java.util.List;
+
+import viewstack.ViewComponent;
+import viewstack.ViewStack;
 
 class StateHelper {
 
