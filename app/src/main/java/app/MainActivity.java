@@ -12,6 +12,8 @@ import android.widget.TextView;
 import viewstack.ViewComponent;
 import viewstack.ViewStack;
 import viewstack.sample.R;
+import viewstack.utils.Options;
+import viewstack.utils.StackChangedListener;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -20,15 +22,25 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        viewStack = ViewStack.of(this, savedInstanceState);
-        if(viewStack.isEmpty()) {
+        viewStack = ViewStack.of(this, savedInstanceState, new Options().withStackChangedListener(new StackChangedListener() {
+            @Override
+            public void onComponentAdded(ViewComponent component) {
+                Log.d("onComponentAdded", component.toString());
+            }
+
+            @Override
+            public void onComponentRemoved(ViewComponent component) {
+                Log.d("onComponentRemoved", component.toString());
+            }
+        }));
+        if (viewStack.isEmpty()) {
             viewStack.show(new MyViewComponent());
         }
     }
 
     @Override
     public void onBackPressed() {
-        if(!viewStack.handleBack()) {
+        if (!viewStack.handleBack()) {
             super.onBackPressed();
         }
     }
@@ -61,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
         void showNextComponent() {
             MyViewComponent component = new MyViewComponent();
             component.getArguments().putInt("index", index + 1);
-            if(hasContext()) {
+            if (hasContext()) {
                 getViewStack().show(component);
             }
         }

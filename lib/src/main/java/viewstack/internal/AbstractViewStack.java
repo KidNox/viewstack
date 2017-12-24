@@ -6,7 +6,10 @@ import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.view.ViewGroup;
 
+import viewstack.ViewComponent;
 import viewstack.ViewStack;
+import viewstack.utils.Options;
+import viewstack.utils.StackChangedListener;
 
 public class AbstractViewStack {
 
@@ -40,10 +43,12 @@ public class AbstractViewStack {
 
         private final Activity activity;
         private final ViewGroup container;
+        @Nullable private final Options options;
 
-        public AbstractViewStackProvider(Activity activity, @Nullable ViewGroup container) {
+        public AbstractViewStackProvider(Activity activity, @Nullable ViewGroup container, @Nullable Options options) {
             this.activity = activity;
             this.container = container == null ? (ViewGroup) activity.findViewById(android.R.id.content) : container;
+            this.options = options;
         }
 
         public ViewStack getOrCreate(@Nullable Bundle state) {
@@ -63,8 +68,11 @@ public class AbstractViewStack {
                 stateHelper.restoreLifecycleManager(lifecycleManager);
                 lifecycleManager.restore(stack);
             }
-
-            TransactionManager transactionManager = new TransactionManager(activity, lifecycleManager, stack, container);
+            StackChangedListener stackChangedListener = options == null ? null : options.getStackChangedListener();
+            if (stackChangedListener == null) {
+                stackChangedListener = stackChangedListenerStub();
+            }
+            TransactionManager transactionManager = new TransactionManager(lifecycleManager, stack, container, stackChangedListener);
             result = newInstance(stack, transactionManager, new Coordinator());
             stateHolder.putViewStack(stackId, result);
             return result;
@@ -72,6 +80,16 @@ public class AbstractViewStack {
 
         protected abstract ViewStack newInstance(ComponentsStack stack, TransactionManager transactionManager, Coordinator coordinator);
 
+    }
+
+    static StackChangedListener stackChangedListenerStub() {
+        return new StackChangedListener() {
+            @Override
+            public void onComponentAdded(ViewComponent component) { }
+
+            @Override
+            public void onComponentRemoved(ViewComponent component) { }
+        };
     }
 
 }

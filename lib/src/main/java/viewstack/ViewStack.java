@@ -12,15 +12,24 @@ import viewstack.internal.Coordinator;
 import viewstack.internal.TransactionManager;
 import viewstack.internal.TransactionManager.Transaction;
 import viewstack.utils.ComponentFinder;
+import viewstack.utils.Options;
 
 public final class ViewStack extends AbstractViewStack {
 
     public static ViewStack of(Activity activity, @Nullable Bundle savedInstanceState) {
-        return new ViewStackProvider(activity, null).getOrCreate(savedInstanceState);
+        return new ViewStackProvider(activity, null, null).getOrCreate(savedInstanceState);
+    }
+
+    public static ViewStack of(Activity activity, @Nullable Bundle savedInstanceState, Options options) {
+        return new ViewStackProvider(activity, null, options).getOrCreate(savedInstanceState);
     }
 
     public static ViewStack of(Activity activity, ViewGroup container, @Nullable Bundle savedInstanceState) {
-        return new ViewStackProvider(activity, container).getOrCreate(savedInstanceState);
+        return new ViewStackProvider(activity, container, null).getOrCreate(savedInstanceState);
+    }
+
+    public static ViewStack of(Activity activity, ViewGroup container, @Nullable Bundle savedInstanceState, Options options) {
+        return new ViewStackProvider(activity, container, options).getOrCreate(savedInstanceState);
     }
 
     public void show(ViewComponent component) {
@@ -55,17 +64,11 @@ public final class ViewStack extends AbstractViewStack {
 
     public boolean handleBack() {
         if (stack.isEmpty()) return false;
-        Transaction transaction;
-        boolean handleBack;
-        if (stack.size() == 1) {
-            //transaction = transactionManager.removeRootTransaction();
-            handleBack = false;
-        } else {
-            transaction = transactionManager.removeLastTransaction();
-            coordinator.execute(transaction);
-            handleBack = true;
+        if (stack.size() > 1) {
+            coordinator.execute(transactionManager.removeLastTransaction());
+            return true;
         }
-        return handleBack;
+        return false;
     }
 
     public <T extends ViewComponent> T goTo(Class<T> keyClass) {
@@ -104,8 +107,8 @@ public final class ViewStack extends AbstractViewStack {
 
     private static class ViewStackProvider extends AbstractViewStackProvider {
 
-        ViewStackProvider(Activity activity, @Nullable ViewGroup container) {
-            super(activity, container);
+        ViewStackProvider(Activity activity, @Nullable ViewGroup container, @Nullable Options options) {
+            super(activity, container, options);
         }
 
         @Override
