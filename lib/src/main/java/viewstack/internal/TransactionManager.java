@@ -1,15 +1,15 @@
 package viewstack.internal;
 
 
+import android.support.annotation.Nullable;
 import android.view.ViewGroup;
 
 import java.util.Iterator;
 import java.util.LinkedList;
 
 import viewstack.ViewComponent;
+import viewstack.contract.animation.AnimationContract;
 import viewstack.utils.StackChangedListener;
-
-import static viewstack.internal.AnimationHandler.animatedTransaction;
 
 @SuppressWarnings("WeakerAccess")
 public final class TransactionManager {
@@ -18,12 +18,15 @@ public final class TransactionManager {
     final ComponentsStack stack;
     final ViewGroup container;
     final StackChangedListener stackChangedListener;
+    @Nullable final AnimationContract defaultAnimationContract;
 
-    public TransactionManager(LifecycleManager lifecycleManager, ComponentsStack stack, ViewGroup container, StackChangedListener stackChangedListener) {
+    public TransactionManager(LifecycleManager lifecycleManager, ComponentsStack stack, ViewGroup container,
+                              StackChangedListener stackChangedListener, @Nullable AnimationContract defaultAnimationContract) {
         this.lm = lifecycleManager;
         this.stack = stack;
         this.container = container;
         this.stackChangedListener = stackChangedListener;
+        this.defaultAnimationContract = defaultAnimationContract;
     }
 
     public Transaction addRootTransaction(ViewComponent component) {
@@ -39,7 +42,10 @@ public final class TransactionManager {
         return coordinator -> {
             lm.attachNew(component);
             lm.detach(current, false);
-            coordinator.execute(animatedTransaction(current, component, true, container), () -> lm.detachView(current, true));
+            coordinator.execute(animatedTransaction(current, component, true), () -> {
+                component.onAttachAnimationEnded();
+                lm.detachView(current, true);
+            });
         };
     }
 
@@ -51,9 +57,10 @@ public final class TransactionManager {
         return coordinator -> {
             lm.attachNew(component);
             lm.detach(current, true);
-            coordinator.execute(animatedTransaction(current, component, false, container), () -> {
+            coordinator.execute(animatedTransaction(current, component, false), () -> {
+                component.onAttachAnimationEnded();
                 lm.detachView(current, false);
-                lm.destroy(current);
+                lm.destroy(current, true);
             });
         };
     }
@@ -67,10 +74,11 @@ public final class TransactionManager {
         return coordinator -> {
             lm.attachNew(component);
             lm.detach(current, true);
-            lm.destroyList(sublist);
-            coordinator.execute(animatedTransaction(current, component, false, container), () -> {
+            lm.destroyList(sublist, true);
+            coordinator.execute(animatedTransaction(current, component, false), () -> {
+                component.onAttachAnimationEnded();
                 lm.detachView(current, false);
-                lm.destroy(current);
+                lm.destroy(current, true);
             });
         };
     }
@@ -87,10 +95,11 @@ public final class TransactionManager {
             lm.render(next);
             lm.attach(next);
             lm.detach(current, true);
-            lm.destroyList(sublist);
-            coordinator.execute(animatedTransaction(current, next, false, container), () -> {
+            lm.destroyList(sublist, true);
+            coordinator.execute(animatedTransaction(current, next, false), () -> {
+                next.onAttachAnimationEnded();
                 lm.detachView(current, false);
-                lm.destroy(current);
+                lm.destroy(current, true);
             });
         };
     }
@@ -103,21 +112,26 @@ public final class TransactionManager {
             lm.render(next);
             lm.attach(next);
             lm.detach(current, true);
-            coordinator.execute(animatedTransaction(current, next, false, container), () -> {
+            coordinator.execute(animatedTransaction(current, next, false), () -> {
+                next.onAttachAnimationEnded();
                 lm.detachView(current, false);
-                lm.destroy(current);
+                lm.destroy(current, true);
             });
         };
     }
 
-    public Transaction destroyAllTransaction() {
+    public Transaction destroyAllTransaction(boolean isFinishing) {
         final ViewComponent current = stack.removeTop();
         final LinkedList<ViewComponent> list = stack.clear();
         return coordinator -> {
-            lm.destroyList(list);
+            lm.destroyList(list, isFinishing);
             lm.detach(current, true);
-            lm.destroy(current);
+            lm.destroy(current, isFinishing);
         };
+    }
+
+    AsyncTransaction animatedTransaction(ViewComponent from, ViewComponent to, boolean stackIncreased) {
+        return AnimationHandler.animatedTransaction(from, to, container, stackIncreased, defaultAnimationContract);
     }
 
     private void onAddToStack(ViewComponent component) {

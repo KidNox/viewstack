@@ -6,9 +6,9 @@ import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.view.ViewGroup;
 
-import viewstack.ViewComponent;
 import viewstack.ViewStack;
-import viewstack.utils.Options;
+import viewstack.contract.animation.AnimationContract;
+import viewstack.utils.StackOptions;
 import viewstack.utils.StackChangedListener;
 
 public class AbstractViewStack {
@@ -31,8 +31,8 @@ public class AbstractViewStack {
         }, true);
     }
 
-    void destroy() {
-        coordinator.executeForced(transactionManager.destroyAllTransaction(), false);
+    void destroy(boolean isFinishing) {
+        coordinator.executeForced(transactionManager.destroyAllTransaction(isFinishing), false);
     }
 
     LifecycleManager getLifecycleManager() {
@@ -43,12 +43,12 @@ public class AbstractViewStack {
 
         private final Activity activity;
         private final ViewGroup container;
-        @Nullable private final Options options;
+        private final StackOptions options;
 
-        public AbstractViewStackProvider(Activity activity, @Nullable ViewGroup container, @Nullable Options options) {
+        public AbstractViewStackProvider(Activity activity, @Nullable ViewGroup container, @Nullable StackOptions options) {
             this.activity = activity;
             this.container = container == null ? (ViewGroup) activity.findViewById(android.R.id.content) : container;
-            this.options = options;
+            this.options = options == null ? new StackOptions() : options;
         }
 
         public ViewStack getOrCreate(@Nullable Bundle state) {
@@ -68,28 +68,17 @@ public class AbstractViewStack {
                 stateHelper.restoreLifecycleManager(lifecycleManager);
                 lifecycleManager.restore(stack);
             }
-            StackChangedListener stackChangedListener = options == null ? null : options.getStackChangedListener();
-            if (stackChangedListener == null) {
-                stackChangedListener = stackChangedListenerStub();
-            }
-            TransactionManager transactionManager = new TransactionManager(lifecycleManager, stack, container, stackChangedListener);
-            result = newInstance(stack, transactionManager, new Coordinator());
+            StackChangedListener stackChangedListener = options.getStackChangedListener();
+            AnimationContract animationContract = options.getDefaultAnimationContract();
+            TransactionManager transactionManager = new TransactionManager(lifecycleManager, stack, container, stackChangedListener, animationContract);
+            result = newInstance(stack, transactionManager, new Coordinator(), options);
             stateHolder.putViewStack(stackId, result);
             return result;
         }
 
-        protected abstract ViewStack newInstance(ComponentsStack stack, TransactionManager transactionManager, Coordinator coordinator);
+        protected abstract ViewStack newInstance(ComponentsStack stack, TransactionManager transactionManager, Coordinator coordinator,
+                                                 StackOptions options);
 
-    }
-
-    static StackChangedListener stackChangedListenerStub() {
-        return new StackChangedListener() {
-            @Override
-            public void onComponentAdded(ViewComponent component) { }
-
-            @Override
-            public void onComponentRemoved(ViewComponent component) { }
-        };
     }
 
 }

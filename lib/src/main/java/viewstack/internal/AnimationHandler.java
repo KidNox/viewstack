@@ -2,80 +2,171 @@ package viewstack.internal;
 
 
 import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.annotation.SuppressLint;
+import android.os.Build;
 import android.support.annotation.Nullable;
+import android.support.annotation.RequiresApi;
+import android.transition.Transition;
+import android.transition.TransitionManager;
 import android.view.ViewGroup;
 
+import java.lang.ref.WeakReference;
+
 import viewstack.ViewComponent;
-import viewstack.contract.AnimationDelegate;
+import viewstack.contract.animation.AnimationContract;
+import viewstack.contract.animation.AnimatorDelegate;
+import viewstack.contract.animation.TransitionDelegate;
+import viewstack.contract.animation.TransitionSupportDelegate;
+import viewstack.utils.TransitionListenerAdapter;
 
-class AnimationHandler {
+//TODO transition first api
+abstract class AnimationHandler {
 
-    static TransactionManager.AsyncTransaction animatedTransaction(ViewComponent current, ViewComponent next, boolean stackIncreased, ViewGroup container) {
+    static TransactionManager.AsyncTransaction animatedTransaction(ViewComponent from, ViewComponent to, ViewGroup container,
+                                                                   boolean stackIncreased,
+                                                                   @Nullable AnimationContract defaultAnimationContract) {
         return endCallback -> {
-            AnimationDelegate detach = current.getAnimationDelegate();
-            AnimationDelegate attach = next.getAnimationDelegate();
-            Animator detachAnimation = null;
-            Animator attachAnimation = null;
-            if (detach != null) {
-                detachAnimation = detach.detachAnimation(current, next, container, stackIncreased);
+            AnimationContract delegate = to.getAnimationContract();
+            if (delegate == null) {
+                delegate = defaultAnimationContract;
             }
-            if (attach != null) {
-                attachAnimation = attach.attachAnimation(next, current, container, stackIncreased);
+            AnimationHandler animationHandler;
+            if (delegate == null) {
+                animationHandler = new StubAnimationHandler();
+            } else if (delegate instanceof TransitionSupportDelegate) {
+                animationHandler = create((TransitionSupportDelegate) delegate, from, to, container, stackIncreased);
+            } else if (delegate instanceof TransitionDelegate) {
+                animationHandler = TransitionHandler.create((TransitionDelegate) delegate, from, to, container, stackIncreased);
+            } else if (delegate instanceof AnimatorDelegate) {
+                animationHandler = AnimatorHandler.create((AnimatorDelegate) delegate, from, to, container, stackIncreased);
+            } else {
+                throw new IllegalArgumentException("unsupported animation type " + delegate + ", default " + defaultAnimationContract);
             }
-            return new AnimationHandler(attachAnimation, detachAnimation).animate(endCallback);
+            return animationHandler.animate(endCallback);
         };
     }
 
 
-    @SuppressWarnings("WeakerAccess") final @Nullable Animator first, second;
+    abstract Coordinator.Cancellable animate(Runnable endCallback);
 
-    private AnimationHandler(@Nullable Animator first, @Nullable Animator second) {
-        this.first = first;
-        this.second = second;
+    private static class StubAnimationHandler extends AnimationHandler {
+
+        @Override
+        Coordinator.Cancellable animate(Runnable endCallback) {
+            endCallback.run();
+            return () -> {};
+        }
     }
 
-    private Coordinator.Cancellable animate(Runnable endCallback) {
-        final Callback callback = getAnimationEndCallback(endCallback);
-        if (first != null) {
-            validateAnimation(first);
-            attachListener(first, 1, callback);
-            first.start();
-        } else {
-            callback.onAnimationEnd(1);
+    private static class AnimatorHandler extends AnimationHandler {
+        static AnimationHandler create(AnimatorDelegate delegate, ViewComponent from, ViewComponent to, ViewGroup container,
+                                       boolean stackIncreased) {
+            return new AnimatorHandler(delegate.animate(from, to, container, stackIncreased));
         }
-        if (second != null) {
-            validateAnimation(second);
-            attachListener(second, 2, callback);
-            second.start();
-        } else {
-            callback.onAnimationEnd(2);
+
+        final Animator animator;
+
+        private AnimatorHandler(Animator animator) {
+            this.animator = animator;
         }
-        return force -> {
-            if (force) {
+
+        @Override
+        Coordinator.Cancellable animate(Runnable endCallback) {
+            final Callback callback = getAnimationEndCallback(endCallback);
+            attachListener(animator, callback);
+            animator.start();
+            return () -> {
+                animator.end();
                 callback.onForceCancel();
+            };
+        }
+
+        private static void attachListener(Animator anim, Callback callback) {
+            anim.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    callback.onAnimationEnd();
+                }
+
+                @Override
+                public void onAnimationCancel(Animator animation) {
+                    callback.onAnimationEnd();
+                }
+            });
+        }
+    }
+
+    static AnimationHandler create(TransitionSupportDelegate delegate, ViewComponent from, ViewComponent to, ViewGroup container,
+                                   boolean stackIncreased) {
+        if(delegate.supportTransition()) {
+            return new TransitionHandler((Transition) delegate.animate(from, to, container, stackIncreased), container);
+        } else {
+            Animator animator = (Animator) delegate.animate(from, to, container, stackIncreased);
+            if(animator == null) {
+                return new StubAnimationHandler();
+            } else {
+                return new AnimatorHandler(animator);
             }
-            if (first != null) {
-                first.end();
-            }
-            if (second != null) {
-                second.end();
-            }
-        };
+        }
+    }
+
+    private static class TransitionHandler extends AnimationHandler {
+        static AnimationHandler create(TransitionDelegate delegate, ViewComponent from, ViewComponent to, ViewGroup container,
+                                       boolean stackIncreased) {
+            return new TransitionHandler(delegate.animate(from, to, container, stackIncreased), container);
+        }
+
+        final Transition transition;
+        final WeakReference<ViewGroup> containerRef;
+
+        private TransitionHandler(Transition transition, ViewGroup container) {
+            this.transition = transition;
+            this.containerRef = new WeakReference<>(container);
+        }
+
+        @SuppressLint("NewApi")
+        @Override
+        Coordinator.Cancellable animate(Runnable endCallback) {
+            final Callback callback = getAnimationEndCallback(endCallback);
+            attachListener(transition, callback);
+            ViewGroup container = containerRef.get();
+            TransitionManager.beginDelayedTransition(container, transition);
+            endCallback.run();
+            return getCancelable(containerRef, callback);
+        }
+
+        private static Coordinator.Cancellable getCancelable(WeakReference<ViewGroup> containerRef, Callback callback) {
+            return () -> {
+                /*ViewGroup container = containerRef.get();
+                if(container != null) {
+                    TransitionManager.endTransitions(container);
+                }*/
+            };
+        }
+
+        @RequiresApi(api = Build.VERSION_CODES.KITKAT)
+        private static void attachListener(Transition transition, Callback callback) {
+            transition.addListener(new TransitionListenerAdapter() {
+                @Override
+                public void onTransitionEnd(Transition transition) {
+
+                }
+
+                @Override
+                public void onTransitionCancel(Transition transition) {
+
+                }
+            });
+        }
     }
 
     private static Callback getAnimationEndCallback(Runnable endCallback) {
         final Runnable callback = MutableRunnable.wrap(endCallback);
         return new Callback() {
-            boolean firstEnded;
-            boolean secondEnded;
-
             @Override
-            public void onAnimationEnd(int animationIndex) {
-                firstEnded = firstEnded || animationIndex == 1;
-                secondEnded = secondEnded || animationIndex == 2;
-                if (firstEnded && secondEnded) {
-                    callback.run();
-                }
+            public void onAnimationEnd() {
+                callback.run();
             }
 
             @Override
@@ -85,34 +176,8 @@ class AnimationHandler {
         };
     }
 
-    private static void validateAnimation(Animator animator) {
-        if (animator.getDuration() == Animator.DURATION_INFINITE) {
-            throw new IllegalArgumentException("invalid animator: DURATION_INFINITE");
-        }
-    }
-
-    private static void attachListener(Animator anim, int index, Callback callback) {
-        anim.addListener(new Animator.AnimatorListener() {
-            @Override
-            public void onAnimationStart(Animator animation) { }
-
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                callback.onAnimationEnd(index);
-            }
-
-            @Override
-            public void onAnimationCancel(Animator animation) {
-                callback.onAnimationEnd(index);
-            }
-
-            @Override
-            public void onAnimationRepeat(Animator animation) { }
-        });
-    }
-
     private interface Callback {
-        void onAnimationEnd(int animationIndex);
+        void onAnimationEnd();
 
         void onForceCancel();
     }

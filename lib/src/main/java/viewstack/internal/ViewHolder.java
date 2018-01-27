@@ -2,10 +2,8 @@ package viewstack.internal;
 
 
 import android.os.Parcelable;
-import android.support.annotation.Nullable;
 import android.util.SparseArray;
 import android.view.View;
-
 
 public abstract class ViewHolder extends ContextHolder {
 
@@ -13,14 +11,14 @@ public abstract class ViewHolder extends ContextHolder {
 
     private SparseArray<Parcelable> viewHierarchyState;
 
-    @Nullable
+    //nullable
     public final View getView() {
         return view;
     }
 
     void setView(View view) {
         this.view = view;
-        if(viewHierarchyState != null) {
+        if (viewHierarchyState != null) {
             view.restoreHierarchyState(viewHierarchyState);
         }
     }
@@ -33,7 +31,7 @@ public abstract class ViewHolder extends ContextHolder {
     public void onDestroyView() { }
 
     void prepareViewState() {
-        if(view == null || !saveViewState()) return;
+        if (view == null || !saveViewState()) return;
 
         viewHierarchyState = new SparseArray<>();
         view.saveHierarchyState(viewHierarchyState);

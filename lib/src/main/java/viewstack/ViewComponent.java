@@ -7,7 +7,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import viewstack.contract.AnimationDelegate;
+import viewstack.contract.animation.AnimationContract;
 import viewstack.contract.Component;
 import viewstack.contract.ViewInterface;
 import viewstack.internal.ViewHolder;
@@ -33,13 +33,16 @@ public abstract class ViewComponent extends ViewHolder implements Component, Vie
     public void onDestroyView() { }
 
     @Override
-    public void onDestroy() { }
+    public void onDestroy(boolean removedFromStack) { }
 
     @Override
     @Nullable
-    public AnimationDelegate getAnimationDelegate() {
+    public AnimationContract getAnimationContract() {
         return null;
     }
+
+    @Override
+    public void onAttachAnimationEnded() { }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) { }

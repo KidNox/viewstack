@@ -78,7 +78,8 @@ class StateHelper {
         @Nullable final SparseArray viewHierarchyState;
 
 
-        ComponentParcelableDescriptor(Class clazz, int id, @Nullable Bundle arguments, @Nullable SparseArray<Parcelable> viewHierarchyState) {
+        ComponentParcelableDescriptor(Class clazz, int id, @Nullable Bundle arguments,
+                                      @Nullable SparseArray<Parcelable> viewHierarchyState) {
             this.clazz = clazz;
             this.id = id;
             this.arguments = arguments;

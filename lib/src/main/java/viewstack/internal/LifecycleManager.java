@@ -75,17 +75,17 @@ class LifecycleManager implements ActivityCallbacks {
         component.removeViewReference();
     }
 
-    void destroy(ViewComponent component) {
+    void destroy(ViewComponent component, boolean removedFromStack) {
         if (component.hasContext()) {
-            component.onDestroy();
+            component.onDestroy(removedFromStack);
             component.setBaseContext(null);
         }
     }
 
-    void destroyList(LinkedList<ViewComponent> list) {
+    void destroyList(LinkedList<ViewComponent> list, boolean removeFromStack) {
         Iterator<ViewComponent> reverse = list.descendingIterator();
         while (reverse.hasNext()) {
-            destroy(reverse.next());
+            destroy(reverse.next(), removeFromStack);
         }
     }
 
@@ -98,7 +98,11 @@ class LifecycleManager implements ActivityCallbacks {
         dispatchPendingAction();
     }
 
+    boolean isActive(ContextHolder component) {
+        return component == currentActive;
+    }
 
+    @SuppressWarnings("WeakerAccess")
     int currentId() {
         if (currentActive == null) return -1;
         return ((ContextHolder) currentActive).getComponentId();
@@ -111,7 +115,6 @@ class LifecycleManager implements ActivityCallbacks {
     int saveState() {
         return componentIdsCounter;
     }
-
 
     void onActivityResult(int componentId, int requestCode, int resultCode, Intent data) {
         if (pendingAction != null) throw new IllegalStateException();

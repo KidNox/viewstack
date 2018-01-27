@@ -14,8 +14,6 @@ public final class Coordinator {
     private boolean forcedState;
     private boolean restoreFromForcedState;
 
-    private boolean isExecuting;
-
     public void execute(Transaction transaction) {
         execute(new CoordinatedTransaction(transaction));
     }
@@ -25,10 +23,9 @@ public final class Coordinator {
     }
 
     void executeForced(Transaction transaction, boolean restoreFromForcedState) {
-        forcedState = true;
-        cancelCurrentAction();
-        execute(new CoordinatedTransaction(transaction));
+        this.forcedState = true;
         this.restoreFromForcedState = restoreFromForcedState;
+        execute(new CoordinatedTransaction(transaction));
     }
 
     private void execute(CoordinatedAction action) {
@@ -38,35 +35,30 @@ public final class Coordinator {
 
     @SuppressWarnings("WeakerAccess")
     void onExecuted(CoordinatedAction action) {
-        isExecuting = false;
         if (action == currentAction) {
-            currentAction = null;
-        }
-        executeNext();
-    }
-
-    private void cancelCurrentAction() {
-        if (currentAction != null) {
-            currentAction.cancel(forcedState);
             currentAction = null;
         }
     }
 
     private void executeNext() {
-        if (isExecuting) return;
-        cancelCurrentAction();
-        if (stack.isEmpty()) return;
-        CoordinatedAction action = currentAction = stack.removeFirst();
+        if (currentAction != null) {
+            currentAction.cancel();
+        }
+        CoordinatedAction action = currentAction = stack.poll();
         if (action != null) {
-            isExecuting = true;
             action.execute();
             if (forcedState) {
-                action.cancel(true);
+                action.cancel();
             }
-        } else if (restoreFromForcedState) {
+        }
+        if (restoreFromForcedState && stack.isEmpty()) {
             forcedState = false;
             restoreFromForcedState = false;
         }
+    }
+
+    public boolean isExecuting() {
+        return currentAction != null;
     }
 
     interface CoordinatedAction extends Cancellable {
@@ -88,8 +80,8 @@ public final class Coordinator {
         }
 
         @Override
-        public void cancel(boolean force) {
-
+        public void cancel() {
+            onExecuted(this);
         }
     }
 
@@ -114,17 +106,18 @@ public final class Coordinator {
         }
 
         @Override
-        public void cancel(boolean force) {
+        public void cancel() {
             Cancellable local = cancellable;
             if (local != null) {
-                local.cancel(force);
+                local.cancel();
                 cancellable = null;
+                onExecuted(this);
             }
         }
     }
 
     interface Cancellable {
-        void cancel(boolean force);
+        void cancel();
     }
 
 }

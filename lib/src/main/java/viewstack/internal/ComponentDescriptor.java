@@ -28,21 +28,25 @@ public class ComponentDescriptor implements Parcelable {
         componentId = in.readInt();
     }
 
-    @Override public void writeToParcel(Parcel dest, int flags) {
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
         dest.writeInt(stackId);
         dest.writeInt(componentId);
     }
 
-    @Override public int describeContents() {
+    @Override
+    public int describeContents() {
         return 0;
     }
 
     public static final Creator<ComponentDescriptor> CREATOR = new Creator<ComponentDescriptor>() {
-        @Override public ComponentDescriptor createFromParcel(Parcel in) {
+        @Override
+        public ComponentDescriptor createFromParcel(Parcel in) {
             return new ComponentDescriptor(in);
         }
 
-        @Override public ComponentDescriptor[] newArray(int size) {
+        @Override
+        public ComponentDescriptor[] newArray(int size) {
             return new ComponentDescriptor[size];
         }
     };

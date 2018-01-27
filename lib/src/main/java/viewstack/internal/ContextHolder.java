@@ -5,8 +5,6 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.MutableContextWrapper;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
@@ -19,15 +17,13 @@ class ContextHolder extends MutableContextWrapper {
 
     private Bundle arguments;
 
-    private Handler handler;
-
     public ContextHolder() {
         super(null);
     }
 
     @NonNull
     public final Bundle getArguments() {
-        if(arguments == null) {
+        if (arguments == null) {
             arguments = new Bundle();
         }
         return arguments;
@@ -42,7 +38,7 @@ class ContextHolder extends MutableContextWrapper {
     }
 
     public void goBack() {
-        if(hasContext()) {
+        if (hasContext()) {
             getActivity().onBackPressed();
         }
     }
@@ -53,12 +49,16 @@ class ContextHolder extends MutableContextWrapper {
     }
 
     private ViewStacksHolder viewStacksHolder() {
-        if(!hasContext()) throw new IllegalStateException();
+        if (!hasContext()) throw new IllegalStateException();
         return ViewStacksHolder.getOrCreate(getActivity());
     }
 
     public final boolean hasContext() {
         return getBaseContext() != null;
+    }
+
+    public final boolean isActive() {
+        return hasContext() && viewStacksHolder().getLifecycleManager(stackId).isActive(this);
     }
 
     //nullable
@@ -98,23 +98,4 @@ class ContextHolder extends MutableContextWrapper {
 
     protected void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) { }
 
-    public void post(Runnable action) {
-        if(handler == null) {
-            handler = new Handler(Looper.getMainLooper());
-        }
-        handler.post(action);
-    }
-
-    public void postDelayed(Runnable action, int delayMillis) {
-        if(handler == null) {
-            handler = new Handler(Looper.getMainLooper());
-        }
-        handler.postDelayed(action, delayMillis);
-    }
-
-    public void removeDelayedActions() {
-        if(handler != null) {
-            handler.removeCallbacksAndMessages(null);
-        }
-    }
 }

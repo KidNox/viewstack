@@ -9,6 +9,6 @@ public interface Component {
 
     void onDetach(boolean removedFromStack);
 
-    void onDestroy();
+    void onDestroy(boolean removedFromStack);
 
 }

@@ -99,8 +99,7 @@ public final class ComponentsStack {
     }
 
     static int idOf(ViewGroup container) {
-        if (container.getId() == View.NO_ID)
-            throw new IllegalArgumentException("illegal view id for ViewStack container: " + container);
+        if (container.getId() == View.NO_ID) throw new IllegalArgumentException("illegal view id for ViewStack container: " + container);
         return container.getId();
     }
 

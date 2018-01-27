@@ -12,7 +12,7 @@ import viewstack.internal.Coordinator;
 import viewstack.internal.TransactionManager;
 import viewstack.internal.TransactionManager.Transaction;
 import viewstack.utils.ComponentFinder;
-import viewstack.utils.Options;
+import viewstack.utils.StackOptions;
 
 public final class ViewStack extends AbstractViewStack {
 
@@ -20,7 +20,7 @@ public final class ViewStack extends AbstractViewStack {
         return new ViewStackProvider(activity, null, null).getOrCreate(savedInstanceState);
     }
 
-    public static ViewStack of(Activity activity, @Nullable Bundle savedInstanceState, Options options) {
+    public static ViewStack of(Activity activity, @Nullable Bundle savedInstanceState, StackOptions options) {
         return new ViewStackProvider(activity, null, options).getOrCreate(savedInstanceState);
     }
 
@@ -28,7 +28,7 @@ public final class ViewStack extends AbstractViewStack {
         return new ViewStackProvider(activity, container, null).getOrCreate(savedInstanceState);
     }
 
-    public static ViewStack of(Activity activity, ViewGroup container, @Nullable Bundle savedInstanceState, Options options) {
+    public static ViewStack of(Activity activity, ViewGroup container, @Nullable Bundle savedInstanceState, StackOptions options) {
         return new ViewStackProvider(activity, container, options).getOrCreate(savedInstanceState);
     }
 
@@ -65,6 +65,9 @@ public final class ViewStack extends AbstractViewStack {
     public boolean handleBack() {
         if (stack.isEmpty()) return false;
         if (stack.size() > 1) {
+            if (ignoreBackOnTransaction && coordinator.isExecuting()) {
+                return true;
+            }
             coordinator.execute(transactionManager.removeLastTransaction());
             return true;
         }
@@ -101,19 +104,23 @@ public final class ViewStack extends AbstractViewStack {
         return stack.isEmpty();
     }
 
-    ViewStack(ComponentsStack stack, TransactionManager transactionManager, Coordinator coordinator) {
+    private boolean ignoreBackOnTransaction;
+
+    ViewStack(ComponentsStack stack, TransactionManager transactionManager, Coordinator coordinator, StackOptions options) {
         super(stack, transactionManager, coordinator);
+        ignoreBackOnTransaction = options.isIgnoreBackPressedOnTransaction();
     }
 
     private static class ViewStackProvider extends AbstractViewStackProvider {
 
-        ViewStackProvider(Activity activity, @Nullable ViewGroup container, @Nullable Options options) {
+        ViewStackProvider(Activity activity, @Nullable ViewGroup container, @Nullable StackOptions options) {
             super(activity, container, options);
         }
 
         @Override
-        protected ViewStack newInstance(ComponentsStack stack, TransactionManager transactionManager, Coordinator coordinator) {
-            return new ViewStack(stack, transactionManager, coordinator);
+        protected ViewStack newInstance(ComponentsStack stack, TransactionManager transactionManager, Coordinator coordinator,
+                                        StackOptions options) {
+            return new ViewStack(stack, transactionManager, coordinator, options);
         }
 
     }

@@ -24,7 +24,7 @@ public final class ViewStacksHolder implements FragmentCallbacks {
 
     static ViewStacksHolder getOrCreate(Activity activity) {
         ViewStacksHolder holder = map.get(activity);
-        if(holder == null) {
+        if (holder == null) {
             holder = new ViewStacksHolder(activity);
             holder.initActivityCallbacks();
             holder.initFragmentCallbacks();
@@ -70,22 +70,21 @@ public final class ViewStacksHolder implements FragmentCallbacks {
         }
     }
 
-    void onDestroy() {
+    void onDestroy(boolean isActivityFinishing) {
         for (int i = 0; i < viewStacks.size(); i++) {
             AbstractViewStack stack = viewStacks.valueAt(i);
-            stack.destroy();
+            stack.destroy(isActivityFinishing);
         }
     }
 
     @Override
-    public void onActivityResult(ComponentDescriptor descriptor,
-                                 int requestCode, int resultCode, Intent data) {
+    public void onActivityResult(ComponentDescriptor descriptor, int requestCode, int resultCode, Intent data) {
         getLifecycleManager(descriptor.getStackId()).onActivityResult(descriptor.getComponentId(), requestCode, resultCode, data);
     }
 
     @Override
-    public void onRequestPermissionsResult(ComponentDescriptor descriptor,
-                                           int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(ComponentDescriptor descriptor, int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
         getLifecycleManager(descriptor.getStackId()).onRequestPermissionsResult(descriptor.getComponentId(), requestCode, permissions, grantResults);
     }
 
@@ -97,9 +96,7 @@ public final class ViewStacksHolder implements FragmentCallbacks {
     private class ActivityCallbacks implements Application.ActivityLifecycleCallbacks {
 
         @Override
-        public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
-
-        }
+        public void onActivityCreated(Activity activity, Bundle savedInstanceState) { }
 
         @Override
         public void onActivityStarted(Activity activity) {
@@ -135,16 +132,16 @@ public final class ViewStacksHolder implements FragmentCallbacks {
 
         @Override
         public void onActivitySaveInstanceState(Activity activity, Bundle outState) {
-            if(context == activity) {
+            if (context == activity) {
                 onSaveInstanceState(outState);
             }
         }
 
         @Override
         public void onActivityDestroyed(Activity activity) {
-            if(context == activity) {
+            if (context == activity) {
                 activity.getApplication().unregisterActivityLifecycleCallbacks(this);
-                onDestroy();
+                onDestroy(activity.isFinishing());
                 map.remove(activity);
                 fragmentInterface = null;
                 context = null;

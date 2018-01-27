@@ -1,6 +1,7 @@
 package app;
 
 import android.annotation.SuppressLint;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -9,10 +10,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import hugo.weaving.DebugLog;
 import viewstack.ViewComponent;
 import viewstack.ViewStack;
 import viewstack.sample.R;
-import viewstack.utils.Options;
+import viewstack.utils.StackOptions;
 import viewstack.utils.StackChangedListener;
 
 public class MainActivity extends AppCompatActivity {
@@ -22,17 +24,19 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        viewStack = ViewStack.of(this, savedInstanceState, new Options().withStackChangedListener(new StackChangedListener() {
-            @Override
-            public void onComponentAdded(ViewComponent component) {
-                Log.d("onComponentAdded", component.toString());
-            }
-
-            @Override
-            public void onComponentRemoved(ViewComponent component) {
-                Log.d("onComponentRemoved", component.toString());
-            }
-        }));
+        viewStack = ViewStack.of(this, savedInstanceState, new StackOptions()
+                /*.ignoreBackPressedOnTransaction()*/
+                .withDefaultAnimationDelegate(new SlideTransitionDelegate())
+                .withStackChangedListener(new StackChangedListener() {
+                    @DebugLog
+                    @Override
+                    public void onComponentAdded(ViewComponent component) {
+                    }
+                    @DebugLog
+                    @Override
+                    public void onComponentRemoved(ViewComponent component) {
+                    }
+                }));
         if (viewStack.isEmpty()) {
             viewStack.show(new MyViewComponent());
         }
@@ -46,6 +50,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     static class MyViewComponent extends ViewComponent {
+
+        static final String[] colors = new String[]{"#f44336", "#9C27B0", "#3F51B5", "#009688", "#CDDC39", "#FFC107"};
 
         int index;
 
@@ -65,15 +71,21 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void afterRender(View view) {
             log("afterRender");
+            view.setOnClickListener(v -> showNextComponent());
+            view.setBackgroundColor(getColor());
             TextView textView = view.findViewById(R.id.text);
             textView.setText("component " + index);
-            textView.setOnClickListener(v -> showNextComponent());
+        }
+
+        private int getColor() {
+            return Color.parseColor(colors[index % 6]);
         }
 
         void showNextComponent() {
-            MyViewComponent component = new MyViewComponent();
-            component.getArguments().putInt("index", index + 1);
-            if (hasContext()) {
+            if (isActive()) {
+                MyViewComponent component = new MyViewComponent();
+                component.getArguments().putInt("index", index + 1);
+                log("show component " + (index + 1));
                 getViewStack().show(component);
             }
         }
@@ -85,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onDetach(boolean removedFromStack) {
-            log("onDetach");
+            log("onDetach " + removedFromStack);
         }
 
         @Override
@@ -94,8 +106,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        public void onDestroy() {
-            log("destroy");
+        public void onDestroy(boolean removedFromStack) {
+            log("destroy " + removedFromStack);
         }
 
         private void log(String method) {
